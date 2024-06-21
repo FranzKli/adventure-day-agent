@@ -66,7 +66,8 @@ async def ask_question(ask: Ask):
     start_phrase = ask.question
     response = client.chat.completions.create(
         model = deployment_name,
-        messages = [{"role" : "assistant", "content" : start_phrase}],
+        messages = [{"role" : "assistant", "content" : start_phrase},
+                    { "role" : "system", "content" : "Answer this question as short as possible. Answer questions without the choice number:"}]
     )
 
     print(response.choices[0].message.content)

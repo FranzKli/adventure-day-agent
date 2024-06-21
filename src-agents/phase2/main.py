@@ -84,16 +84,41 @@ async def ask_question(ask: Ask):
     Ask a question
     """
 
-    # This is not using a semantic search, but a simple search
-    results = list(search_client.search(
-        search_text=ask.question,
-        query_type="simple",
-        include_total_count=True,
+    # create a vectorized query based on the question
+    vector = VectorizedQuery(vector=get_embedding(ask.question), k_nearest_neighbors=5, fields="vector")
+
+
+    # create search client to retrieve movies from the vector store
+    found_docs = list(search_client.search(
+        search_text=None,
+        query_type="semantic",
+        semantic_configuration_name="movies-semantic-config",
+        vector_queries=[vector],
+        select=["title", "genre", "plot"],
         top=5
     ))
 
-    print('Search results:')
-    print(results)
+    # print the found documents and the field that were selected
+    for doc in found_docs:
+        print("Movie: {}".format(doc["title"]))
+        print("Genre: {}".format(doc["genre"]))
+        print("----------")
+
+
+    found_docs_as_text = " "
+    for elem in enumerate(found_docs, start=1):    
+        found_docs_as_text += " "+ "Movie Title: {}".format(doc["title"]) +" "+ "Movie story: {}".format(doc["plot"])
+
+    # augment the question with the found documents and ask the LLM to generate a response
+    system_prompt = "You are an assistant to the user, you are given some context below, please answer the query of the user with as detail as possible"
+
+    parameters = [system_prompt, ' Context:', found_docs_as_text , ' Question:', ask.question]
+    joined_parameters = ''.join(parameters)
+
+    response = client.chat.completions.create(
+            model = deployment_name,
+            messages = [{"role" : "assistant", "content" : joined_parameters}],
+        )
 
     # Send a completion call to generate an answer
     print('Sending a request to openai')
